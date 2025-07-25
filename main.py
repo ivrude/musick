@@ -1,50 +1,59 @@
-"""Flask app to start and stop alarm"""
-from flask import Flask, render_template
-import pygame
+from flask import Flask, request
+import subprocess
+import platform
+import os
+import signal
 
 app = Flask(__name__)
 
+player_process = None  # збережемо процес плеєра
 
-# to start musick
 def play_music(file_path):
-    pygame.init()
-    pygame.mixer.init()
-    pygame.mixer.music.load(file_path)
-    pygame.mixer.music.play()
+    global player_process
+    stop_music()  # зупиняємо, якщо вже щось грає
 
-# to stop musick
+    system = platform.system()
+    abs_path = os.path.abspath(file_path)
+
+    try:
+        if system == "Windows":
+            # Відкриваємо стандартний плеєр Windows
+            player_process = subprocess.Popen(['start', '', abs_path], shell=True)
+        elif system == "Linux":
+            # Спробуємо через xdg-open (відкриє за замовчуванням)
+            player_process = subprocess.Popen(['xdg-open', abs_path])
+        else:
+            return False
+        return True
+    except Exception as e:
+        print(f"Error launching player: {e}")
+        return False
+
 def stop_music():
-    pygame.mixer.music.stop()
+    global player_process
+    if player_process:
+        try:
+            if platform.system() == "Windows":
+                # На Windows складно вбити процес через Popen, тому поки просто ігноруємо
+                pass
+            else:
+                player_process.terminate()
+            player_process = None
+        except Exception as e:
+            print(f"Error stopping player: {e}")
 
-#start alarm №1
-@app.route("/webhook2", methods=["POST", "GET"])
+@app.route("/webhook2", methods=["GET", "POST"])
 def webhook():
     file_path = "Try.mp3"
-    play_music(file_path)
-    return "Music started!"
+    if play_music(file_path):
+        return "Music started!"
+    else:
+        return "Failed to start music", 500
 
-#start alarm №2
-#@app.route("/webhook2", methods=["POST", "GET"])
-#def webhook22():
-#    file_path = "sound/fallout_4_01_Fallout_4_Main_Theme.mp3"
-#    play_music(file_path)
-#    return "Music started_22!"
-
-# to make pdf screenshots
-#@app.route("/print", methods=["POST", "GET"])
-#def make_pdf():
-#    return render_template("make_pdf.html")
-
-#to stop alarm
-@app.route("/stop", methods=["POST", "GET", "OPTIONS"])
+@app.route("/stop", methods=["GET", "POST"])
 def stop():
     stop_music()
-    return """
-        <script>
-            window.close();
-        </script>
-        """
-
+    return "Music stopped!"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8002, debug=True)

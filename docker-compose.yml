@@ -1,0 +1,13 @@
+# docker-compose.yml
+version: '3.9'
+
+services:
+  music-server:
+    build: .
+    ports:
+      - "8000:8000"
+    devices:
+      - "/dev/snd:/dev/snd"
+    restart: always
+
+
